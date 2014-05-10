@@ -1,0 +1,657 @@
+<?php
+
+namespace Perpetuum\Fitting\Domain;
+
+class Fitting extends \Apex\Domain\NamedEntity
+{
+	public $robot;
+	public $agent;
+	
+	public function getRobot()
+	{
+		return $this->robot;
+	}
+	
+	public function setRobot($robot)
+	{
+		$this->robot = $robot;
+	}
+	
+	public function getAgent()
+	{
+		return $this->agent;
+	}
+	
+	public function setAgent($agent)
+	{
+		$this->agent = $agent;
+	}
+	
+	public function applyHungarianMath()
+	{
+		// 1. apply modules to bot that are not affected by extensions
+		// 2. apply extensions on modules
+		// 3. apply modules on bot BEFORE extensions on bot
+		// 4. apply extensions on bot
+		// 5. apply modules on bot AFTER extensions on bot
+		// 6. apply bot bonuses
+		// 7. apply modules on bot AFTER extensions and bonuses
+		// 8. calculate CPU/reactor
+		// 9. calculate top speed
+		// 10. apply cycle time, damage and falloff modifiers (base * n1 * nx)
+		// 11. accumulator simulation
+		// 12. additional calculations (dps and such)
+		
+		// TODO extensions: Interference modulation, Convergent electrostatics
+		
+		$this->applyModulesPreExtensions();
+		$this->applyExtensionsOnModules();
+		
+		$this->applyExtensionsOnRobot();
+	}
+	
+	private function applyModulesPreExtensions()
+	{
+		$robot = $this->getRobot();
+		
+		foreach($robot->getFittedModules() as $module):
+			
+			// Apply evasive modules
+			
+			if ($module->hasGroup('Evasive modules')) {
+				$value = $robot->getParameter('Surface hit size')->getValue() + $module->getValue('Surface hit size');
+				$robot->getParameter('Surface hit size')->setModifiedValue($value);
+			}
+			
+			// Set default damage parameter
+			
+			if ($module->hasGroup('Lasers') || $module->hasGroup('Firearms') || $module->hasGroup('Missile launchers') || $module->hasGroup('Magnetic weapons')) {
+				if ($module->getParameter('Damage') == false) {
+					$parameter = new \Perpetuum\Fitting\Domain\Parameter(null, 'Damage');
+					$parameter->setValue(100);
+					$module->addParameter($parameter);
+				}
+			}
+			
+		endforeach;
+	}
+	
+	private function applyExtensionsOnModules()
+	{
+		$robot = $this->getRobot();
+		$agent = $this->getAgent();
+		
+		foreach($robot->getFittedModules() as $module):
+			
+			// Complex jamming electronics
+			
+			if ($module->hasGroup('ECMs') || $module->hasGroup('Sensor suppressors')) {
+				$value = $module->getParameterValue('EW strength') + ($module->getParameterValue('EW strength') * $agent->getExtensionLevel('Complex jamming electronics') * 0.03);
+				$module->getParameter('Surface hit size')->setModifiedValue($value);
+			}
+			
+			// Demobilization
+			
+			if ($module->hasGroup('Demobilizers')) {
+				$value = 100 * (((1 + ($module->getParameterValue('Top speed modification') / 100)) / (1 + ($agent->getExtensionLevel('Demobilization') * 0.03))) - 1);
+				$module->getParameter('Top speed modification')->setModifiedValue($value);
+			}
+			
+			// Efficient ECM technology
+			
+			if ($module->hasGroup('ECMs')) {
+				$value = $module->getParameterValue('Accumulator consumption') + ($module->getParameterValue('Accumulator consumption') * $agent->getExtensionLevel('Efficient ECM technology') * 0.03);
+				$module->getParameter('Accumulator consumption')->setModifiedValue($value);
+			}
+			
+			// Jamming electronics
+			
+			if ($module->hasGroup('ECMs') || $module->hasGroup('Sensor suppressors')) {
+				$value = $module->getParameterValue('EW strength') + ($module->getParameterValue('EW strength') * $agent->getExtensionLevel('Jamming electronics') * 0.03);
+				$module->getParameter('Surface hit size')->setModifiedValue($value);
+			}
+			
+			// Long distance electronic warfare
+			
+			if ($module->hasGroup('Electronic warfare')) {
+				$value = $module->getParameterValue('Optimal range') + ($module->getParameterValue('Optimal range') * $agent->getExtensionLevel('Long distance electronic warfare') * 0.03);
+				$module->getParameter('Optimal range')->setModifiedValue($value);
+			}
+			
+			// Optimized electronic warfare	
+			
+			if ($module->hasGroup('Electronic warfare')) {
+				$value = $module->getParameterValue('CPU usage') + ($module->getParameterValue('CPU usage') * $agent->getExtensionLevel('Optimized electronic warfare') * -0.03);
+				$module->getParameter('CPU usage')->setModifiedValue($value);
+			}
+			
+			// Optimized signal detection
+			
+			if ($module->hasGroup('Signal detectors')) {
+				$value = $module->getParameterValue('CPU usage') + ($module->getParameterValue('CPU usage') * $agent->getExtensionLevel('Optimized signal detection') * -0.03);
+				$module->getParameter('CPU usage')->setModifiedValue($value);
+			}
+			
+			// Optimized signal masking
+			
+			if ($module->hasGroup('Signal maskers')) {
+				$value = $module->getParameterValue('CPU usage') + ($module->getParameterValue('CPU usage') * $agent->getExtensionLevel('Optimized signal masking') * -0.03);
+				$module->getParameter('CPU usage')->setModifiedValue($value);
+			}
+			
+			// Remote sensor amplification
+			
+			if ($module->hasGroup('Remote sensor amplifiers')) {
+				$value = $module->getParameterValue('Accumulator usage') + ($module->getParameterValue('Accumulator usage') * $agent->getExtensionLevel('Remote sensor amplification') * -0.05);
+				$module->getParameter('CPU usage')->setModifiedValue($value);
+			}
+			
+			// Sensor connection
+			
+			if ($module->hasGroup('Sensor amplifiers') || $module->hasGroup('Remote sensor amplifiers')) {
+				$value = 100 * (((1 + ($module->getParameterValue('Locking time') / 100)) / (1 + ($agent->getExtensionLevel('Sensor connection') * 0.02))) - 1);
+				$module->getParameter('Locking time')->setModifiedValue($value);
+			}
+			
+			// Sensor suppressing
+			
+			if ($module->hasGroup('Sensor suppressors')) {
+				$value = ((1 + ($module->getParameterValue('Locking time') / 100)) * (1 + ($agent->getExtensionLevel('Sensor suppressing') * 0.03)) - 1) * 100;
+				$module->getParameter('Locking time')->setModifiedValue($value);
+			}
+			
+			// Signal detection
+			
+			if ($module->hasGroup('Signal detectors')) {
+				$value = 100 * (((1 + ($module->getParameterValue('Signal detection modification') / 100)) * (1 + ($agent->getExtensionLevel('Signal detection') * 0.02))) - 1);
+				$module->getParameter('Signal detection modification')->setModifiedValue($value);
+			}
+			
+			// Signal masking
+			
+			if ($module->hasGroup('Signal maskers')) {
+				$value = 100 * (((1 + ($module->getParameterValue('Signal masking modification') / 100)) * (1 + ($agent->getExtensionLevel('Signal masking') * 0.02))) - 1);
+				$module->getParameter('Signal masking modification')->setModifiedValue($value);
+			}
+			
+			// Accelerated armor repair
+			
+			if ($module->hasGroup('Armor repairers') || $module->hasGroup('Remote armor repairers')) {
+				$module->addExtensionModifier('Cycle time', $agent->getExtensionLevel('Accelerated armor repair') * 0.05);
+			}
+			
+			// Economical armor usage
+			
+			if (
+				$module->hasGroup('Armor plates') || $module->hasGroup('Armor hardeners') ||
+				$module->hasGroup('Armor repairers') || $module->hasGroup('Remote armor repairers') || $module->hasGroup('Armor repairer tunings')
+			) {
+				$value = $module->getParameterValue('Reactor usage') + ($module->getParameterValue('Reactor usage') * $agent->getExtensionLevel('Economical armor usage') * -0.03);
+				$module->getParameter('Reactor usage')->setModifiedValue($value);
+			}
+			
+			// Economical shield usage
+			
+			if ($module->hasGroup('Shield generators')) {
+				$value = $module->getParameterValue('Reactor usage') + ($module->getParameterValue('Reactor usage') * $agent->getExtensionLevel('Economical shield usage') * -0.03);
+				$module->getParameter('Reactor usage')->setModifiedValue($value);
+			}
+			
+			// Economical weapon usage
+			
+			if (
+				$module->hasGroup('Lasers') || $module->hasGroup('Firearms') || $module->hasGroup('Missile launchers') || $module->hasGroup('Magnetic weapons')
+			) {
+				$value = $module->getParameterValue('Reactor usage') + ($module->getParameterValue('Reactor usage') * $agent->getExtensionLevel('Economical weapon usage') * -0.03);
+				$module->getParameter('Reactor usage')->setModifiedValue($value);
+			}
+			
+			// Efficient energy transfer
+			
+			if ($module->hasGroup('Energy transferers')) {
+				$value = $module->getParameterValue('Accumulator consumption') + ($module->getParameterValue('Accumulator consumption') * $agent->getExtensionLevel('Efficient energy transfer') * -0.05);
+				$module->getParameter('Accumulator consumption')->setModifiedValue($value);
+			}
+			
+			// Improved armor repair
+			
+			if ($module->hasGroup('Armor repairers') || $module->hasGroup('Remote armor repairers')) {
+				$value = $module->getParameterValue('Repair') + ($module->getParameterValue('Repair') * $agent->getExtensionLevel('Improved armor repair') * 0.02);
+				$module->getParameter('Repair')->setModifiedValue($value);
+			}
+			
+			// Improved energy drain
+			
+			if ($module->hasGroup('Energy drainers')) {
+				$value = $module->getParameterValue('Drained energy') + ($module->getParameterValue('Drained energy') * $agent->getExtensionLevel('Improved energy drain') * 0.02);
+				$module->getParameter('Drained energy')->setModifiedValue($value);
+			}
+			
+			// Improved energy neutralization
+			
+			if ($module->hasGroup('Energy neutralizers')) {
+				$value = $module->getParameterValue('Neutralized energy') + ($module->getParameterValue('Neutralized energy') * $agent->getExtensionLevel('Improved energy neutralization') * 0.02);
+				$module->getParameter('Neutralized energy')->setModifiedValue($value);
+			}
+			
+			// Improved shield technology
+			
+			if ($module->hasGroup('Shield generators')) {
+				$value = 2 * (1 + ($agent->getExtensionLevel('Improved shield technology') * 0.03));
+				$module->getParameter('Shield absorption')->setModifiedValue($value);
+				
+				// Search for shield hardener(s)
+				
+				foreach($robot->getFittedModules() as $potentialHardener) {
+					if ($potentialHardener->hasGroup('Shield hardeners')) {
+						$value = $module->getParameterValue('Shield absorption') * (1 + ($potentialHardener->getParameterValue('Shield absorption') / 100));
+						$module->getParameter('Shield absorption')->setModifiedValue($value);
+					}
+				}
+				
+				$value = ((1 / $module->getParameterValue('Shield absorption')) / $module->getParameterValue('Shield radius')) * $robot->getParameterValue('Surface hit size');
+				$module->getParameter('Absorption ratio')->setModifiedValue($value);
+			}
+			
+			// Long range engineering
+			
+			if ($module->hasGroup('Engineering equipment')) {
+				$value = $module->getParameterValue('Optimal range') + ($module->getParameterValue('Optimal range') * $agent->getExtensionLevel('Long range engineering') * 0.03);
+				$module->getParameter('Optimal range')->setModifiedValue($value);
+			}
+			
+			// Optimized armor usage
+			
+			if (
+				$module->hasGroup('Armor plates') || $module->hasGroup('Armor hardeners') ||
+				$module->hasGroup('Armor repairers') || $module->hasGroup('Remote armor repairers') || $module->hasGroup('Armor repairer tunings')
+			) {
+				$value = $module->getParameterValue('CPU usage') + ($module->getParameterValue('CPU usage') * $agent->getExtensionLevel('Optimized armor usage') * -0.03);
+				$module->getParameter('CPU usage')->setModifiedValue($value);
+			}
+			
+			// Optimized engineering
+			
+			if ($module->hasGroup('Engineering equipment')) {
+				$value = $module->getParameterValue('CPU usage') + ($module->getParameterValue('CPU usage') * $agent->getExtensionLevel('Optimized engineering') * -0.03);
+				$module->getParameter('CPU usage')->setModifiedValue($value);
+			}
+			
+			// Optimized shield usage
+			
+			if ($module->hasGroup('Shield generators')) {
+				$value = $module->getParameterValue('CPU usage') + ($module->getParameterValue('CPU usage') * $agent->getExtensionLevel('Optimized shield usage') * -0.03);
+				$module->getParameter('CPU usage')->setModifiedValue($value);
+			}
+			
+			// Optimized weapon usage
+			
+			if (
+				$module->hasGroup('Lasers') || $module->hasGroup('Firearms') || $module->hasGroup('Missile launchers') || $module->hasGroup('Magnetic weapons')
+			) {
+				$value = $module->getParameterValue('CPU usage') + ($module->getParameterValue('CPU usage') * $agent->getExtensionLevel('Economical weapon usage') * -0.03);
+				$module->getParameter('CPU usage')->setModifiedValue($value);
+			}
+			
+			// Remote armor repair
+			
+			if ($module->hasGroup('Remote repairer')) {
+				$value = $module->getParameterValue('Accumulator consumption') + ($module->getParameterValue('Accumulator consumption') * $agent->getExtensionLevel('Remote armor repair') * -0.03);
+				$module->getParameter('Accumulator consumption')->setModifiedValue($value);
+			}
+			
+			// Advanced ballistics
+			
+			if ($module->hasGroup('Medium missile launchers')) {
+				$module->addExtensionModifier('Damage', $agent->getExtensionLevel('Advanced ballistics') * 0.03);
+			}
+			
+			// Advanced kinematics
+			
+			if ($module->hasGroup('Medium firearms')) {
+				$module->addExtensionModifier('Damage', $agent->getExtensionLevel('Advanced kinematics') * 0.03);
+			}
+			
+			// Advanced magnetostatics
+			
+			if ($module->hasGroup('Medium magnetic weapons')) {
+				$module->addExtensionModifier('Damage', $agent->getExtensionLevel('Advanced magnetostatics') * 0.03);
+			}
+			
+			// Advanced optics
+			
+			if ($module->hasGroup('Medium lasers')) {
+				$module->addExtensionModifier('Damage', $agent->getExtensionLevel('Advanced optics') * 0.03);
+			}
+			
+			// Basic ballistics
+			
+			if ($module->hasGroup('Small missile launchers')) {
+				$module->addExtensionModifier('Damage', $agent->getExtensionLevel('Basic ballistics') * 0.03);
+			}
+			
+			// Basic kinematics
+			
+			if ($module->hasGroup('Small firearms')) {
+				$module->addExtensionModifier('Damage', $agent->getExtensionLevel('Basic firearms') * 0.03);
+			}
+			
+			// Basic magnetostatics
+			
+			if ($module->hasGroup('Small magnetic weapons')) {
+				$module->addExtensionModifier('Damage', $agent->getExtensionLevel('Basic magnetic weapons') * 0.03);
+			}
+			
+			// Basic optics
+			
+			if ($module->hasGroup('Small lasers')) {
+				$module->addExtensionModifier('Damage', $agent->getExtensionLevel('Basic lasers') * 0.03);
+			}
+			
+			// Complex missile launch
+			
+			if ($module->hasGroup('Missile launchers')) {
+				$module->addExtensionModifier('Cycle time', $agent->getExtensionLevel('Complex missile launch') * 0.03);
+			}
+			
+			// General firing
+			
+			if ($module->hasGroup('Turrets')) {
+				$module->addExtensionModifier('Damage', $agent->getExtensionLevel('General firing') * 0.01);
+			}
+			
+			// Improved falloff
+			
+			if ($module->hasGroup('Turrets')) {
+				$module->addExtensionModifier('Falloff', $agent->getExtensionLevel('Improved falloff') * 0.03);
+			}
+			
+			// Missile launch
+			
+			if ($module->hasGroup('Missile launchers')) {
+				$module->addExtensionModifier('Cycle time', $agent->getExtensionLevel('Missile launch') * 0.01);
+			}
+			
+			// Precision firing
+			
+			if ($module->hasGroup('Turrets')) {
+				$value = $module->getParameterValue('Hit dispersion') + ($module->getParameterValue('Hit dispersion') * $agent->getExtensionLevel('Precision firing') * -0.03);
+				$module->getParameter('Hit dispersion')->setModifiedValue($value);
+			}
+			
+			// Propellant mixing
+			
+			if ($module->hasGroup('Missile launchers')) {
+				$value = $module->getParameterValue('Optimal range modification') + ($agent->getExtensionLevel('Propellant mixing') * 3);
+				$module->getParameter('Optimal range modification')->setModifiedValue($value);
+			}
+			
+			// Rapid-firing
+			
+			if ($module->hasGroup('Turrets')) {
+				$module->addExtensionModifier('Cycle time', $agent->getExtensionLevel('Rapid-firing') * 0.03);
+			}
+			
+			// Seismics
+			
+			if ($module->hasGroup('Missile launchers')) {
+				$value = $module->getParameterValue('Explosion size modification') + ($agent->getExtensionLevel('Seismics') * 3);
+				$module->getParameter('Explosion size modification')->setModifiedValue($value);
+			}
+			
+			// Sharpshooting
+			
+			if ($module->hasGroup('Turrets')) {
+				$value = $module->getParameterValue('Optimal range') * (1 + ($agent->getExtensionLevel('Sharpshooting') * 0.03));
+				$module->getParameter('Optimal range')->setModifiedValue($value);
+			}
+			
+			// Target analysis
+			
+			if ($module->hasGroup('Weapons')) {
+				$module->addExtensionModifier('Damage', $agent->getExtensionLevel('Target analysis') * 0.01);
+			}
+			
+		endforeach;
+	}
+	
+	private function applyModulesOnRobotBeforeExtenions()
+	{
+		
+	}
+	
+	private function applyExtensionsOnRobot()
+	{
+		$robot = $this->getRobot();
+		$agent = $this->getAgent();
+		
+		// Accelerated target locking
+		
+		$value = $robot->getParameter('Locking time')->getBase() / (1 + ($agent->getExtensionLevel('Accelerated target locking') * 0.05));
+		$robot->getParameter('Locking time')->setModifiedValue($value);
+		
+		// Data processing
+		
+		$value = $robot->getParameterValue('CPU performance') + ($robot->getParameterBaseValue('CPU performance') * $agent->getExtensionLevel('Data processing') * 0.03);
+		$robot->getParameter('CPU performance')->setModifiedValue($value);
+		
+		// Long range targeting
+		
+		$value = $robot->getParameterValue('Locking range') + ($robot->getParameterBaseValue('Locking range') * $agent->getExtensionLevel('Long range targeting') * 0.05);
+		$robot->getParameter('Locking range')->setModifiedValue($value);
+		
+		// Targeting
+		
+		$robot->getParameter('Maximum targets')->setModifiedValue(1 + $agent->getExtensionLevel('Targeting'));
+		if ($robot->getParameterValue('Maximum targets') > $robot->getParameterBaseValue('Maximum targets')) {
+			$robot->getParameter('Maximum targets')->setModifiedValue($robot->getParameterBaseValue('Maximum targets'));
+		}
+		
+		// Accelerated reloading
+		
+		$value = $robot->getParameterValue('Ammunition reload time') - ($robot->getParameterBaseValue('Ammunition reload time') * $agent->getExtensionLevel('Accelerated reloading') * 0.05); 
+		$robot->getParameter('Ammunition reload time')->setModifiedValue($value);
+		
+		// Accumulator expansion
+		
+		$value = $robot->getParameterValue('Accumulator capacity') + ($robot->getParameterValue('Accumulator capacity') * $agent->getExtensionLevel('Accumulator expansion') * 0.03);
+		$robot->getParameter('Accumulator capacity')->setModifiedValue($value);
+		$robot->getParameter('Accumulator')->setModifiedValue($value);
+		
+		// Complex mechanics & mechanics
+		
+		$value = $robot->getParameterValue('Armor') + ($robot->getParameterValue('Armor') * $agent->getExtensionLevel('Complex mechanics') * 0.05) + ($robot->getParameterValue('Armor') * $agent->getExtensionLevel('Mechanics') * 0.02);
+		$robot->getParameter('Armor')->setModifiedValue($value);
+		$robot->getParameter('Armor status')->setModifiedValue($value);
+		
+		// Energy management
+		
+		$value = $robot->getParameterValue('Accumulator recharge time') - ($robot->getParameterBaseValue('Accumulator recharge time') * $agent->getExtensionLevel('Energy management') * 0.03);
+		$robot->getParameter('Accumulator recharge time')->setModifiedValue($value);
+		
+		// Reactor expansion
+		
+		$value = $robot->getParameterValue('Reactor performance') + ($robot->getParameterBaseValue('Reactor performance') * $agent->getExtensionLevel('Reactor expansion') * 0.03);
+		$robot->getParameter('Reactor performance')->setModifiedValue($value);
+		$robot->getParameter('Available reactor performance')->setModifiedValue($value);
+		
+		// Critical hit
+		
+		$robot->getParameter('Critical hit chance')->setModifiedValue(1 + $agent->getExtensionLevel('Critical hit'));
+		
+		// Missile guidance
+		
+		$robot->getParameter('Missile guidance accuracy')->setModifiedValue($robot->getParameterBaseValue('Missile guidance accuracy') + $agent->getExtensionLevel('Missile guidance'));
+		
+		
+		
+		
+	}
+	
+	public function getCpuUsage()
+	{
+		
+	}
+	
+	public function getReactorUsage()
+	{
+		
+	}
+	
+	public function getAccumulatorUsage()
+	{
+		
+	}
+	
+	public function getSpeed()
+	{
+		
+	}
+	
+	public function getDps()
+	{
+		
+	}
+}
+
+abstract class Item extends \Apex\Domain\NamedEntity
+{
+	protected $parameters = array();
+	protected $groups = array();
+	
+	public function addParameter($parameter)
+	{
+		$this->parameters[$parameter->getId()] = $parameter;
+	}
+	
+	public function getParameter($name)
+	{
+		foreach($this->parameters as $parameter) {
+			if ($parameter->getName() == $name) return $parameter;
+		}
+		return new \Perpetuum\Fitting\Domain\Parameter(null, $name); // prevents exceptions for non-existent parameters
+	}
+	
+	public function getParameterValue($name)
+	{
+		if ($parameter = $this->getParameter($name)) return $parameter->getValue();
+		else return null;
+	}
+	
+	public function getParameterBaseValue($name)
+	{
+		if ($parameter = $this->getParameter($name)) return $parameter->getBase();
+		else return null;
+	}
+	
+	public function addGroup($group)
+	{
+		$this->groups[$group->getName()] = $group;
+	}
+	
+	public function hasGroup($name)
+	{
+		return isset($this->groups[$name]);
+	}
+}
+
+class Robot extends Item
+{
+	protected $fitting = array();
+	protected $cargo = array();
+	protected $bonuses = array();
+	
+	public function addItem($item)
+	{
+		if (is_a($item, 'Perpetuum\Fitting\Domain\Charge')) {
+			$this->cargo[] = $item;
+		}
+		else {
+			$this->fitting[] = $item;
+		}
+	}
+	
+	public function getFittedModules()
+	{
+		return $this->fitting;
+	}
+}
+
+class RobotBonus
+{
+	
+}
+
+class Module extends Item
+{
+	protected $active = true;
+	protected $modifiers = array(
+		'Cycle time' => array(
+			'Extensions' => 0,
+			'Tuners' => array()
+		),
+		'Damage' => array(
+			'Extensions' => array(),
+			'Tuners' => array()
+		),
+		'Falloff' => array(
+			'Extensions' => 0,
+			'Tuners' => array()
+		)
+	);
+	
+	public function setActive($active) {
+		$this->active = empty($active) ? false : true;
+	}
+	
+	public function getActive()
+	{
+		return $this->active;
+	}
+	
+	public function addExtensionModifier($parameterName, $value) {
+		if ($parameterName == 'Cycle time' || $parameterName == 'Falloff') $this->modifiers[$parameterName]['Extensions'] += $value;
+		else $this->modifiers[$parameterName]['Extensions'][] = $value;
+	}
+	
+	public function addTunerModifier($parameterName, $value) {
+		$this->modifiers[$parameterName]['Tuners'][] = $value;
+	}
+}
+
+class Charge extends Item
+{
+	
+}
+
+class Parameter extends \Apex\Domain\NamedEntity
+{
+	protected $value;
+	protected $base;
+	
+	public function setValue($value)
+	{
+		$this->value = $value;
+		$this->base = $value;
+	}
+	
+	public function setModifiedValue($value)
+	{
+		$this->value = $value;
+	}
+	
+	public function getValue()
+	{
+		return $this->value;
+	}
+	
+	public function getBase()
+	{
+		return $this->base;
+	}
+}
+
+class Group extends \Apex\Domain\NamedEntity
+{
+	
+}
