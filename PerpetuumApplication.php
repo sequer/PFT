@@ -13,6 +13,11 @@ class AgentRepository extends \Apex\Application\Repository
 	{
 		return $this->mapper->fetchById($id);
 	}
+	
+	public function getFromExport($filename)
+	{
+		return $this->mapper->load($filename);
+	}
 }
 
 class AgentMapper extends \Apex\Application\Mapper
@@ -60,12 +65,26 @@ class AgentMapper extends \Apex\Application\Mapper
 		$stmt = $this->pdo->prepare('SELECT * FROM `agent_extensions` WHERE `agent_id` = :agent_id');
 		$stmt->execute(array('agent_id' => $agent->getId()));
 		while ($result = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-			$extension = new \Perpetuum\Domain\AgentExtension($result['extension_name'], $result['extension_level']);
-			$extension->setComplexity($extensions[$extension->getName()]['complexity']);
-			$agent->addExtension($extension);
+			if (isset($extensions[$result['extension_name']])) {
+				$extension = new \Perpetuum\Domain\AgentExtension($result['extension_name'], $result['extension_level']);
+				$extension->setComplexity($extensions[$extension->getName()]['complexity']);
+				$agent->addExtension($extension);
+			}
 		}
 		
 		return $agent;
+	}
+	
+	public function load($filename)
+	{
+		$csvParser = new \Perpetuum\Services\CsvParser;
+		$csv = $csvParser->load($filename)->toArray();
+		unset($csv[0]); // remove header
+		var_dump($csv);
+		$extensions = array();
+		foreach($csv as $line) {
+			
+		}
 	}
 }
 

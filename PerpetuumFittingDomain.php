@@ -43,11 +43,18 @@ class Fitting extends \Apex\Domain\NamedEntity
 		// 12. additional calculations (dps and such)
 		
 		// TODO extensions: Interference modulation, Convergent electrostatics
+		// TODO modules: Repairer tunings, Energy injectors, ERPs, EnWar upgrades, Reactor sealings, ECM tunings, Sensor suppresor tunings
+		// TODO sparks (also within agent domain)
+		// TODO NEXUS
+		// TODO active modules
 		
 		$this->applyModulesPreExtensions();
 		$this->applyExtensionsOnModules();
-		
+		$this->applyModulesOnRobotBeforeExtenions();
 		$this->applyExtensionsOnRobot();
+		$this->applyModulesOnRobotAfterExtensions();
+		$this->applyRobotBonuses();
+		$this->applyModulesOnRobotAfterExtensionsAndBonuses();
 	}
 	
 	private function applyModulesPreExtensions()
@@ -65,7 +72,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 			
 			// Set default damage parameter
 			
-			if ($module->hasGroup('Lasers') || $module->hasGroup('Firearms') || $module->hasGroup('Missile launchers') || $module->hasGroup('Magnetic weapons')) {
+			if ($module->hasGroup('Turrets') || $module->hasGroup('Ballistics')) {
 				if ($module->getParameter('Damage') == false) {
 					$parameter = new \Perpetuum\Fitting\Domain\Parameter(null, 'Damage');
 					$parameter->setValue(100);
@@ -199,9 +206,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 			
 			// Economical weapon usage
 			
-			if (
-				$module->hasGroup('Lasers') || $module->hasGroup('Firearms') || $module->hasGroup('Missile launchers') || $module->hasGroup('Magnetic weapons')
-			) {
+			if ($module->hasGroup('Turrets') || $module->hasGroup('Ballistics')) {
 				$value = $module->getParameterValue('Reactor usage') + ($module->getParameterValue('Reactor usage') * $agent->getExtensionLevel('Economical weapon usage') * -0.03);
 				$module->getParameter('Reactor usage')->setModifiedValue($value);
 			}
@@ -242,9 +247,9 @@ class Fitting extends \Apex\Domain\NamedEntity
 				
 				// Search for shield hardener(s)
 				
-				foreach($robot->getFittedModules() as $potentialHardener) {
-					if ($potentialHardener->hasGroup('Shield hardeners')) {
-						$value = $module->getParameterValue('Shield absorption') * (1 + ($potentialHardener->getParameterValue('Shield absorption') / 100));
+				foreach($robot->getFittedModules() as $candidate) {
+					if ($candidate->hasGroup('Shield hardeners')) {
+						$value = $module->getParameterValue('Shield absorption') * (1 + ($candidate->getParameterValue('Shield absorption') / 100));
 						$module->getParameter('Shield absorption')->setModifiedValue($value);
 					}
 				}
@@ -286,9 +291,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 			
 			// Optimized weapon usage
 			
-			if (
-				$module->hasGroup('Lasers') || $module->hasGroup('Firearms') || $module->hasGroup('Missile launchers') || $module->hasGroup('Magnetic weapons')
-			) {
+			if ($module->hasGroup('Turrets') || $module->hasGroup('Ballistics')) {
 				$value = $module->getParameterValue('CPU usage') + ($module->getParameterValue('CPU usage') * $agent->getExtensionLevel('Economical weapon usage') * -0.03);
 				$module->getParameter('CPU usage')->setModifiedValue($value);
 			}
@@ -350,7 +353,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 			
 			// Complex missile launch
 			
-			if ($module->hasGroup('Missile launchers')) {
+			if ($module->hasGroup('Ballistics')) {
 				$module->addExtensionModifier('Cycle time', $agent->getExtensionLevel('Complex missile launch') * 0.03);
 			}
 			
@@ -368,7 +371,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 			
 			// Missile launch
 			
-			if ($module->hasGroup('Missile launchers')) {
+			if ($module->hasGroup('Ballistics')) {
 				$module->addExtensionModifier('Cycle time', $agent->getExtensionLevel('Missile launch') * 0.01);
 			}
 			
@@ -381,7 +384,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 			
 			// Propellant mixing
 			
-			if ($module->hasGroup('Missile launchers')) {
+			if ($module->hasGroup('Ballistics')) {
 				$value = $module->getParameterValue('Optimal range modification') + ($agent->getExtensionLevel('Propellant mixing') * 3);
 				$module->getParameter('Optimal range modification')->setModifiedValue($value);
 			}
@@ -394,7 +397,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 			
 			// Seismics
 			
-			if ($module->hasGroup('Missile launchers')) {
+			if ($module->hasGroup('Ballistics')) {
 				$value = $module->getParameterValue('Explosion size modification') + ($agent->getExtensionLevel('Seismics') * 3);
 				$module->getParameter('Explosion size modification')->setModifiedValue($value);
 			}
@@ -408,7 +411,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 			
 			// Target analysis
 			
-			if ($module->hasGroup('Weapons')) {
+			if ($module->hasGroup('Turrets') || $module->hasGroup('Ballistics')) {
 				$module->addExtensionModifier('Damage', $agent->getExtensionLevel('Target analysis') * 0.01);
 			}
 			
@@ -417,7 +420,22 @@ class Fitting extends \Apex\Domain\NamedEntity
 	
 	private function applyModulesOnRobotBeforeExtenions()
 	{
+		$robot = $this->robot;
 		
+		foreach($robot->getFittedModules() as $module):
+		
+			if ($module->hasGroup('Armor plates')) {
+				$robot->getParameter('Surface hit size')->setModifiedValue($robot->getParameterValue('Surface hit size') + $module->getParameterValue('Surface hit size'));
+				$robot->getParameter('Armor')->setModifiedValue($robot->GetParameterValue('Armor') + $module->getParameterValue('Armor'));
+				$robot->getParameter('Armor status')->setModifiedValue($robot->getParameterValue('Armor')); // alias
+			}
+			
+			if ($module->hasGroup('Auxiliary accumulators')) {
+				$robot->getParameter('Accumulator capacity')->setValue($robot->getParameterValue('Accumulator capacity') + $module->getParameterValue('Accumulator capacity')); // change base value for the robot
+				$robot->getParameter('Accumulator')->setValue($robot->getParameterValue('Accumulator capacity')); // alias
+			}
+			
+		endforeach;
 	}
 	
 	private function applyExtensionsOnRobot()
@@ -482,9 +500,121 @@ class Fitting extends \Apex\Domain\NamedEntity
 		// Missile guidance
 		
 		$robot->getParameter('Missile guidance accuracy')->setModifiedValue($robot->getParameterBaseValue('Missile guidance accuracy') + $agent->getExtensionLevel('Missile guidance'));
+	}
+	
+	private function applyModulesOnRobotAfterExtensions()
+	{
+		$robot = $this->robot;
 		
+		foreach($robot->getFittedModules() as $module):
+			
+			if ($module->hasGroup('Armor plates') || $module->hasGroup('Lightweight frames')) {
+				$robot->getParameter('Demobilizer resistance')->setModifiedValue($robot->getParameterValue('Demobilizer resistance') + $module->getParameterValue('Demobilizer resistance'));
+			}
+			
+			if ($module->hasGroup('Armor hardeners')) {
+				$robot->getParameter('Passive chemical resistance')->setModifiedValue($robot->getParameterValue('Passive chemical resitance') + $module->getParameterValue('Passive chemical resistance'));
+				$robot->getParameter('Passive kinetic resistance')->setModifiedValue($robot->getParameterValue('Passive kinetic resitance') + $module->getParameterValue('Passive kinetic resistance'));
+				$robot->getParameter('Passive seismic resistance')->setModifiedValue($robot->getParameterValue('Passive seismic resitance') + $module->getParameterValue('Passive seismic resistance'));
+				$robot->getParameter('Passive thermal resistance')->setModifiedValue($robot->getParameterValue('Passive thermal resitance') + $module->getParameterValue('Passive thermal resistance'));
+			}
+			
+			if ($module->hasGroup('Lightweight frames')) {
+				$robot->getParameter('Armor')->setModifiedValue($robot->getParameterValue('Armor') * (($module->getParameterValue('Armor hit points') / 100) + 1));
+				$robot->getParameter('Armor status')->setModifiedValue($robot->getParameterValue('Armor')); // alias
+				$robot->getParameter('Mass')->setModifiedValue($robot->getParameterBaseValue('Armor') * (($module->getParameterValue('Mass') / 100) + 1));
+				$module->getParameter('Mass')->setModifiedValue(2);
+			}
+			
+			if ($module->hasGroup('Shield generators')) {
+				if ($module->getParameterValue('Shield radius') > $robot->getParameterValue('Surface hit size')) {
+					$module->getParameter('Absorption ratio')->setModifiedValue(($module->getParameterValue('Absorption ratio') / $module->getParameterValue('Shield radius')) * $robot->getParameterValue('Surface hit size'));
+				}
+			}
+			
+			if ($module->hasGroup('Accumulator rechargers')) {
+				$robot->getParameter('Accumulator recharge time')->setModifiedValue($robot->getParameterValue('Accumulator recharge time') * (($module->getParameterValue('Accumulator recharge time') / 100) + 1));
+			}
+			
+			if ($module->hasGroup('Coreactors')) {
+				$robot->getParameter('Reactor performance')->setModifiedValue($robot->getParameterValue('Reactor performance') * ($module->getParameterValue('Reactor performance') / 100));
+				$robot->getParameter('Available reactor performance')->setModifiedValue($robot->getParameterValue('Reactor performance')); // alias, used for fitting requirements
+			}
+			
+			if ($module->hasGroup('Sensor amplifiers')) {
+				$robot->getParameter('Locking range')->setModifiedValue($robot->getParameterValue('Locking range') * (1 + ($module->getParameterValue('Locking range') / 100)));
+				$robot->getParameter('Locking time')->setModifiedValue($robot->getParameterValue('Locking time') - ($robot->getParameterValue('Locking time') * (($module->getParameterValue('Locking time') * -1) / 100)));
+			}
+			
+			if ($module->hasGroup('Coprocessors')) {
+				$robot->getParameter('CPU performance')->setModifiedValue($robot->getParameterValue('CPU performance') * (1 + ($module->getParameterValue('CPU performance') / 100)));
+				$robot->getParameter('Available CPU performance')->setModifiedValue($robot->getParameterValue('CPU performance')); // alias, used for fitting requirements
+			}
+			
+			if ($module->hasGroup('Range extenders')) {
+				foreach($robot->getFittedModules() as $candidate) {
+					$candidate->getParameter('Optimal range')->setModifiedValue($candidate->getParameterValue('Optimal range') * (1 + ($module->getParameterValue('Optimal range modifier') / 100)));
+				}
+			}
+			
+			if ($module->hasGroup('Signal detectors')) {
+				$robot->getParameter('Signal detection')->setModifiedValue($robot->getParameterValue('Signal detection') * (1 + ($module->getParameterValue('Signal detection modification') / 100)));
+			}
+			
+			if ($module->hasGroup('Signal maskers')) {
+				$robot->getParameter('Signal masking')->setModifiedValue($robot->getParameterValue('Signal masking') * (1 + ($module->getParameterValue('Signal masking modification') / 100)));
+			}
+			
+			if ($module->hasGroup('ECCMs')) {
+				$robot->getParameter('Sensor strength')->setModifiedValue($robot->getParameterValue('Sensor strength') * (1 + ($module->getParameterValue('Sensor strength') / 100)));
+			}
+			
+			if ($module->hasGroup('Magnetic weapon tunings')) {
+				foreach($robot->getFittedModules() as $candidate) {
+					if ($candidate->hasGroup('Magnetic weapon turrets')) {
+						$candidate->addTunerModifier('Damage', (1 + ($candidate->getParameterValue('Damage') / 100)));
+						$candidate->addTunerModifier('Cycle time', (1 + ($candidate->getParameterValue('Magnetic weapon cycle time') / 100)));
+					}
+				}
+			}
+			
+			if ($module->hasGroup('Firearm tunings')) {
+				foreach($robot->getFittedModules() as $candidate) {
+					if ($candidate->hasGroup('Firearm turrets')) {
+						$candidate->addTunerModifier('Damage', (1 + ($candidate->getParameterValue('Damage') / 100)));
+						$candidate->addTunerModifier('Cycle time', (1 + ($candidate->getParameterValue('Cycle time') / 100)));
+					}
+				}
+			}
+			
+			if ($module->hasGroup('Laser tunings')) {
+				foreach($robot->getFittedModules() as $candidate) {
+					if ($candidate->hasGroup('Laser turrets')) {
+						$candidate->addTunerModifier('Damage', (1 + ($candidate->getParameterValue('Damage') / 100)));
+						$candidate->addTunerModifier('Cycle time', (1 + ($candidate->getParameterValue('Laser cycle time') / 100)));
+					}
+				}
+			}
+			
+			if ($module->hasGroup('Missile launcher tunings')) {
+				foreach($robot->getFittedModules() as $candidate) {
+					if ($candidate->hasGroup('Ballistics')) {
+						$candidate->addTunerModifier('Damage', (1 + ($candidate->getParameterValue('Damage') / 100)));
+						$candidate->addTunerModifier('Cycle time', (1 + ($candidate->getParameterValue('Missile launcher cycle time') / 100)));
+					}
+				}
+			}
+			
+		endforeach;
+	}
+	
+	private function applyRobotBonuses()
+	{
 		
-		
+	}
+	
+	private function applyModulesOnRobotAfterExtensionsAndBonuses()
+	{
 		
 	}
 	
@@ -503,12 +633,32 @@ class Fitting extends \Apex\Domain\NamedEntity
 		
 	}
 	
-	public function getSpeed()
+	public function getTopSpeed()
 	{
 		
 	}
 	
-	public function getDps()
+	public function getKineticDps()
+	{
+		
+	}
+	
+	public function getThermalDps()
+	{
+		
+	}
+	
+	public function getSeismicDps()
+	{
+		
+	}
+	
+	public function getChemicalDps()
+	{
+		
+	}
+	
+	public function getCombinedDps()
 	{
 		
 	}

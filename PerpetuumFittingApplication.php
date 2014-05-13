@@ -67,8 +67,48 @@ class ItemMapper extends \Apex\Application\Mapper
 		
 		// conditional groups .. maybe move to a different method/class?
 		
-		if ($item->hasGroup('Lasers') || $item->hasGroup('Firearms') || $item->hasGroup('Magnetic weapons')) {
+		if ($item->hasGroup('Light lasers') || $item->hasGroup('Medium lasers')) {
+			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Laser turrets');
+			$item->addGroup($group);
+		}
+		
+		if ($item->hasGroup('Light conventional firearms') || $item->hasGroup('Medium conventional firearms')) {
+			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Firearm turrets');
+			$item->addGroup($group);
+		}
+		
+		if ($item->hasGroup('Light magnetic weapons') || $item->hasGroup('Medium magnetic weapons')) {
+			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Magnetic weapon turrets');
+			$item->addGroup($group);
+		}
+		
+		if ($item->hasGroup('Laser turrets') ||$item->hasGroup('Firearm turrets') ||$item->hasGroup('Magnetic weapon turrets')) {
 			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Turrets');
+			$item->addGroup($group);
+		}
+		
+		if ($item->hasGroup('Light missile launchers') || $item->hasGroup('Medium missile launchers')) {
+			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Ballistics');
+			$item->addGroup($group);
+		}
+		
+		if ($item->hasGroup('Weapon tunings') && $item->hasGroup('Magnetic weapons')) {
+			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Magnetic weapon tunings');
+			$item->addGroup($group);
+		}
+		
+		if ($item->hasGroup('Weapon tunings') && $item->hasGroup('Firearms')) {
+			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Firearm tunings');
+			$item->addGroup($group);
+		}
+		
+		if ($item->hasGroup('Weapon tunings') && $item->hasGroup('Lasers')) {
+			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Laser tunings');
+			$item->addGroup($group);
+		}
+		
+		if ($item->hasGroup('Weapon tunings') && $item->hasGroup('Missile launchers')) {
+			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Missile launcher tunings');
 			$item->addGroup($group);
 		}
 		
