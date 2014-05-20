@@ -25,9 +25,22 @@ $agentRepository = new \Perpetuum\Application\AgentRepository($pdo);
 /*$agent = $agentRepository->getFromExport('extensionhistory.csv');
 var_dump($agent);*/
 
+require('PerpetuumDataRobotBonuses.php');
+$params = array();
+foreach($robotBonuses as $robot) {
+	foreach($robot as $bonus) {
+		$bonus['apply'] = isset($bonus['apply']) ? $bonus['apply'] : 'Robot';
+		$params[$bonus['apply']][$bonus['parameter']] = true;
+	}
+}
+var_dump($params);
+exit;
+
 $agent = $agentRepository->getById(47);
 $fitting = $fittingRepository->getById(21);
 $fitting->setAgent($agent);
 $fitting->applyHungarianMath();
+
+
 
 var_dump($fitting);

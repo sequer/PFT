@@ -60,18 +60,6 @@ class Agent extends \Apex\Domain\NamedEntity
 class Extension extends \Apex\Domain\NamedEntity
 {
 	protected $complexity;
-	private $multipliers = array(
-		1  => 1,
-		2  => 1,
-		3  => 1,
-		4  => 1,
-		5  => 1,
-		6  => 2,
-		7  => 3,
-		8  => 4,
-		9  => 5,
-		10 => 10
-	);
 	
 	public function setComplexity($complexity)
 	{
@@ -85,7 +73,8 @@ class Extension extends \Apex\Domain\NamedEntity
 	
 	public function getEPCost($level)
 	{
-		return (60 * $this->getComplexity() * $level * $this->$multipliers[$level]);
+		$multipliers = array(1 => 1, 2 => 1, 3 => 1, 4 => 1, 5 => 1, 6 => 2, 7 => 3, 8 => 4, 9 => 5, 10 => 10);
+		return (60 * $this->getComplexity() * $level * $multipliers[$level]);
 	}
 	
 	public function getNICCost($level)

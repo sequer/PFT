@@ -67,6 +67,16 @@ class ItemMapper extends \Apex\Application\Mapper
 		
 		// conditional groups .. maybe move to a different method/class?
 		
+		if ($item->hasGroup('Armor repairers') || $item->hasGroup('Remote armor repairers')) {
+			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Armor repair amount bonus');
+			$item->addGroup($group);
+		}
+		
+		if ($item->hasGroup('Miner modules') || $item->hasGroup('Harvesting modules')) {
+			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Miner and harvesting modules');
+			$item->addGroup($group);
+		}
+		
 		if ($item->hasGroup('Light lasers') || $item->hasGroup('Medium lasers')) {
 			$group = new \Perpetuum\Fitting\Domain\Group(null, 'Laser turrets');
 			$item->addGroup($group);
@@ -120,6 +130,24 @@ class ItemMapper extends \Apex\Application\Mapper
 			$parameter->setName($value['parameter_name']);
 			$parameter->setValue($value['parameter_value']);
 			$item->addParameter($parameter);
+		}
+		
+		// add bonuses
+		
+		if (get_class($item) == 'Perpetuum\Fitting\Domain\Robot') {
+			require('PerpetuumDataRobotBonuses.php');
+			if (isset($robotBonuses[$item->getName()])) {
+				foreach($robotBonuses[$item->getName()] as $array) {
+					$extension = new \Perpetuum\Domain\Extension(null, $array['extension']);
+					$parameter = new \Perpetuum\Fitting\Domain\Parameter(null, $array['parameter']);
+					$bonus = new \Perpetuum\Fitting\Domain\RobotBonus;
+					$bonus->setExtension($extension);
+					$bonus->setParameter($parameter);
+					$bonus->setBonus($array['bonus']);
+					$bonus->setTarget(isset($array['apply']) ? $array['apply'] : 'Robot');
+					$item->addBonus($bonus);
+				}
+			}
 		}
 		
 		return $item;

@@ -36,8 +36,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 		// 5. apply modules on bot AFTER extensions on bot
 		// 6. apply bot bonuses
 		// 7. apply modules on bot AFTER extensions and bonuses
-		// 8. calculate CPU/reactor
-		// 9. calculate top speed
+		// 8. calculate mass, top speed, CPU/reactor
 		// 10. apply cycle time, damage and falloff modifiers (base * n1 * nx)
 		// 11. accumulator simulation
 		// 12. additional calculations (dps and such)
@@ -45,6 +44,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 		// TODO extensions: Interference modulation, Convergent electrostatics
 		// TODO modules: Repairer tunings, Energy injectors, ERPs, EnWar upgrades, Reactor sealings, ECM tunings, Sensor suppresor tunings
 		// TODO sparks (also within agent domain)
+		// TODO charges (including transfering missile charge properties to modules)
 		// TODO NEXUS
 		// TODO active modules
 		
@@ -55,6 +55,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 		$this->applyModulesOnRobotAfterExtensions();
 		$this->applyRobotBonuses();
 		$this->applyModulesOnRobotAfterExtensionsAndBonuses();
+		$this->applyRequirements();
 	}
 	
 	private function applyModulesPreExtensions()
@@ -610,12 +611,167 @@ class Fitting extends \Apex\Domain\NamedEntity
 	
 	private function applyRobotBonuses()
 	{
+		$robot = $this->getRobot();
+		$agent = $this->getAgent();
 		
+		foreach($robot->getBonuses() as $bonus) {
+			$parameter = $bonus->getParameter()->getName();
+			$multiplier = $agent->getExtensionLevel($bonus->getExtension()->getName()) * $bonus->getBonus();
+			
+			if ($bonus->getApply() == 'Robot') {
+				switch($parameter):
+				
+					case 'Critical hit chance':
+						
+						break;
+					
+					case 'Signal masking':
+						
+						break;
+					
+					case 'Armor':
+						
+						break;
+					
+					case 'Surface hit size':
+						
+						break;
+					
+					case 'Accumulator capacity':
+						$robot->getParameter('Accumulator capacity')->setModifiedValue($robot->getParameterValue('Accumulator capacity') + ($robot->getParameterBaseValue('Accumulator capacity') * $multiplier));
+						break;
+					
+					case 'Accumulator recharge time':
+						$robot->getParameter('Accumulator recharge time')->setModifiedValue($robot->getParameterValue('Accumulator recharge time') - ($robot->getParameterBaseValue('Accumulator recharge time') * $multiplier));
+						break;
+					
+					case 'Locking time':
+						$robot->getParameter('Locking time')->setModifiedValue($robot->getParameterBaseValue('Locking time') / (1 + ($agent->getExtensionLevel('Accelerated target locking') * 0.05) + $multiplier)); // see: http://forums.perpetuum-online.com/post/11277/#p11277
+						break;
+					
+					case 'Passive chemical resistance':
+						$robot->getParameter('Passive chemical resistance')->setModifiedValue($robot->getParameterValue('Passive chemical resistance') * (1 + $multiplier));
+						break;
+					
+					case 'Passive seismic resistance':
+						$robot->getParameter('Passive seismic resistance')->setModifiedValue($robot->getParameterValue('Passive seismic resistance') * (1 + $multiplier));						
+						break;
+					
+					case 'Passive kinetic resistance':
+						$robot->getParameter('Passive kinetic resistance')->setModifiedValue($robot->getParameterValue('Passive kinetic resistance') * (1 + $multiplier));						
+						break;
+					
+					case 'Passive thermal resistance':
+						$robot->getParameter('Passive thermal resistance')->setModifiedValue($robot->getParameterValue('Passive thermal resistance') * (1 + $multiplier));
+						break;
+					
+				endswitch;
+			}	
+			else {
+				foreach($robot->getFittedModules() as $module):
+					if ($module->hasGroup($bonus->getTarget()) && $module->hasParameter($parameter)) {
+						switch($parameter):
+						
+							case 'Hit dispersion':
+								
+								break;
+							
+							case 'Mined amount':
+								
+								break;
+							
+							case 'Harvested amount':
+								
+								break;
+							
+							case 'EW strength':
+								
+								break;
+							
+							case 'Accumulator usage':
+								
+								break;
+							
+							case 'Industrial module accumulator usage':
+								
+								break;
+							
+							case 'Locking range':
+								
+								break;
+							
+							case 'Locking time':
+								
+								break;
+							
+							case 'Neutralized energy':
+								
+								break;
+							
+							case 'CPU usage':
+								
+								break;
+							
+							case 'Cycle time':
+								$module->addExtensionModifier('Cycle time', $multiplier);
+								break;
+							
+							case 'Damage':
+								$module->addExtensionModifier('Damage', $multiplier);
+								break;
+							
+							case 'Falloff':
+								$module->addExtensionModifier('Falloff', $multiplier);
+								break;
+							
+							case 'Optimal range':
+								$module->addExtensionModifier('Optimal range', $multiplier);
+								break;
+							
+							case 'Optimal range modification':
+								
+								break;
+							
+							case 'Repair':
+								$module->getParameter('Repair')->setModifiedValue($module->getParameterValue('Repair') + ($module->getParameterValue('Repair') * $multiplier));
+								break;
+							
+							case 'Geoscanner accuracy':
+								$module->getParameter('Geoscanner accuracy')->setModifiedValue($module->getParameterValue('Geoscanner accuracy') * (1 + (($agent->getExtensionLevel('Basic geochemistry') * 0.045) + $multiplier)));
+								break;
+							
+						endswitch;
+					}
+				endforeach;
+			}
+		}
 	}
 	
 	private function applyModulesOnRobotAfterExtensionsAndBonuses()
 	{
+		$robots = $this->getRobot();
 		
+		foreach($robot->getFittedModules() as $module):
+			if ($module->hasGroup('Armor hardeners')) {
+				$robot->getParameter('Passive chemical resistance')->setModifiedValue($robot->getParameterValue('Passive chemical resistance') + $module->getParameterValue('Active chemical resistance'));
+				$robot->getParameter('Passive kinetic resistance')->setModifiedValue($robot->getParameterValue('Passive kinetic resistance') + $module->getParameterValue('Active kinetic resistance'));
+				$robot->getParameter('Passive seismic resistance')->setModifiedValue($robot->getParameterValue('Passive seismic resistance') + $module->getParameterValue('Active seismic resistance'));
+				$robot->getParameter('Passive thermal resistance')->setModifiedValue($robot->getParameterValue('Passive thermal resistance') + $module->getParameterValue('Active thermal resistance'));
+			}
+		endforeach;
+	}
+	
+	private function applyRequirements()
+	{
+		$robot = $this->getRobot();
+		
+		foreach($robot->getFittedModules() as $module):
+			$robot->getParameter('Available CPU performance')->setModifiedValue($robot->getParameterValue('Available CPU performance') - $module->getParameterValue('CPU usage'));
+			$robot->getParameter('Available reactor performance')->setModifiedValue($robot->getParameterValue('Available reactor performance') - $module->getParameterValue('Reactor usage'));
+			$robot->getParameter('Mass')->setModifiedValue($robot->getParameterValue('Mass') - $module->getParameterValue('Mass'));
+		endforeach;
+		
+		$robot->getParameter('Top speed')->setModifiedValue(($robot->getParameterBaseValue('Mass') / $robot->getParameterValue('Mass')) * $robot->getParameterValue('Top speed'));
 	}
 	
 	public function getCpuUsage()
@@ -674,6 +830,14 @@ abstract class Item extends \Apex\Domain\NamedEntity
 		$this->parameters[$parameter->getId()] = $parameter;
 	}
 	
+	public function hasParameter($name)
+	{
+		foreach($this->parameters as $parameter) {
+			if ($parameter->getName() == $name) return true;
+		}
+		return false;
+	}
+	
 	public function getParameter($name)
 	{
 		foreach($this->parameters as $parameter) {
@@ -725,11 +889,64 @@ class Robot extends Item
 	{
 		return $this->fitting;
 	}
+	
+	public function addBonus($bonus)
+	{
+		$this->bonuses[] = $bonus;
+	}
+	
+	public function getBonuses()
+	{
+		return $this->bonuses;
+	}
 }
 
 class RobotBonus
 {
+	private $extension;
+	private $parameter; // effect
+	private $bonus;
+	private $target;
 	
+	public function setExtension($extension)
+	{
+		$this->extension = $extension;
+	}
+	
+	public function getExtension()
+	{
+		return $this->extension;
+	}
+	
+	public function setParameter($parameter)
+	{
+		$this->parameter = $parameter;
+	}
+	
+	public function getParameter()
+	{
+		return $this->parameter;
+	}
+	
+	public function setBonus($bonus)
+	{
+		$this->bonus = $bonus;
+	}
+	
+	public function getBonus()
+	{
+		return $this->bonus;
+	}
+	
+	public function setTarget($target)
+	{
+		$this->target = $target;
+	}
+	
+	public function getTarget()
+	{
+		return $this->target;
+	}
 }
 
 class Module extends Item
@@ -750,7 +967,8 @@ class Module extends Item
 		)
 	);
 	
-	public function setActive($active) {
+	public function setActive($active)
+	{
 		$this->active = empty($active) ? false : true;
 	}
 	
@@ -759,12 +977,14 @@ class Module extends Item
 		return $this->active;
 	}
 	
-	public function addExtensionModifier($parameterName, $value) {
+	public function addExtensionModifier($parameterName, $value) // have these methods deal directly with the parameter instances instead of their names?
+	{ 
 		if ($parameterName == 'Cycle time' || $parameterName == 'Falloff') $this->modifiers[$parameterName]['Extensions'] += $value;
 		else $this->modifiers[$parameterName]['Extensions'][] = $value;
 	}
 	
-	public function addTunerModifier($parameterName, $value) {
+	public function addTunerModifier($parameterName, $value)
+	{
 		$this->modifiers[$parameterName]['Tuners'][] = $value;
 	}
 }
