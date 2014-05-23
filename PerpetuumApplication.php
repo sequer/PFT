@@ -14,9 +14,14 @@ class AgentRepository extends \Apex\Application\Repository
 		return $this->mapper->fetchById($id);
 	}
 	
-	public function getFromExport($filename)
+	public function setStarterExtensions($agent)
 	{
-		return $this->mapper->load($filename);
+		return $this->mapper->setStarterExtensions($agent);
+	}
+	
+	public function importExtensions($filename, $agent)
+	{
+		return $this->mapper->import($filename, $agent);
 	}
 }
 
@@ -40,6 +45,25 @@ class AgentMapper extends \Apex\Application\Mapper
 		
 		// extensions, starter extensions
 		
+		$this->setStarterExtensions($agent);
+		
+		// extensions, saved extensions
+		
+		$stmt = $this->pdo->prepare('SELECT * FROM `agent_extensions` WHERE `agent_id` = :agent_id');
+		$stmt->execute(array('agent_id' => $agent->getId()));
+		while ($result = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+			if (isset($extensions[$result['extension_name']])) {
+				$extension = new \Perpetuum\Domain\AgentExtension($result['extension_name'], $result['extension_level']);
+				$extension->setComplexity($extensions[$extension->getName()]['complexity']);
+				$agent->addExtension($extension);
+			}
+		}
+		
+		return $agent;
+	}
+	
+	public function setStarterExtensions($agent)
+	{
 		require('PerpetuumDataExtensions.php');
 		
 		foreach($startingExtensionsMegacorporations[$agent->getMegacorporation()] as $extensionName => $extensionLevel) {
@@ -60,31 +84,18 @@ class AgentMapper extends \Apex\Application\Mapper
 			$agent->addExtension($extension);
 		}
 		
-		// extensions, saved extensions
-		
-		$stmt = $this->pdo->prepare('SELECT * FROM `agent_extensions` WHERE `agent_id` = :agent_id');
-		$stmt->execute(array('agent_id' => $agent->getId()));
-		while ($result = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-			if (isset($extensions[$result['extension_name']])) {
-				$extension = new \Perpetuum\Domain\AgentExtension($result['extension_name'], $result['extension_level']);
-				$extension->setComplexity($extensions[$extension->getName()]['complexity']);
-				$agent->addExtension($extension);
-			}
-		}
-		
 		return $agent;
 	}
 	
-	public function load($filename)
+	public function import($filename, $agent)
 	{
 		$csvParser = new \Perpetuum\Services\CsvParser;
-		$csv = $csvParser->load($filename)->toArray();
-		unset($csv[0]); // remove header
-		var_dump($csv);
-		$extensions = array();
-		foreach($csv as $line) {
-			
+		$csv = $csvParser->load($filename)->sort(2)->toArray();
+		foreach($csv as $row) {
+			$extension = new \Perpetuum\Domain\AgentExtension($row[0], $row[1]);
+			$agent->setExtension($extension);
 		}
+		return $agent;
 	}
 }
 
@@ -101,3 +112,35 @@ class ExtensionMapper
 	
 }
 
+class SparkRepository extends \Apex\Application\Repository
+{
+	public function __construct($pdo)
+	{
+		$this->mapper = new SparkMapper($pdo);
+	}
+	
+	public function getByName($name)
+	{
+		return $this->mapper->constructByName($name);
+	}
+}
+
+class SparkMapper extends \Apex\Application\Mapper
+{
+	public function constructByName($name)
+	{
+		$spark = new \Perpetuum\Domain\Spark(null, $name);
+		require('PerpetuumDataSparks.php');
+		if (isset($sparks[$name])) {
+			foreach($sparks[$name] as $array) {
+				$bonus = new \Perpetuum\Domain\SparkBonus;
+				$parameter = new \Perpetuum\Fitting\Domain\Parameter(null, $array['parameter']);
+				$bonus->setParameter($parameter);
+				$bonus->setBonus($array['bonus']);
+				$bonus->setTarget(isset($array['apply']) ? $array['apply'] : 'Robot');
+				$spark->addBonus($bonus);
+			}
+		}
+		return $spark;
+	}
+}

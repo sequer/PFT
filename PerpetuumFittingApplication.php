@@ -15,6 +15,11 @@ class ItemRepository extends \Apex\Application\Repository
 	{
 		return $this->mapper->fetchById($id);
 	}
+	
+	public function getByName($name)
+	{
+		return $this->mapper->fetchByName($name);
+	}
 }
 
 class ItemMapper extends \Apex\Application\Mapper
@@ -152,6 +157,21 @@ class ItemMapper extends \Apex\Application\Mapper
 		
 		return $item;
 	}
+	
+	public function fetchByName($name)
+	{
+		$stmt = $this->pdo->prepare('
+			SELECT `item_id`
+			FROM `items` 
+			WHERE `item_name` = :item_name
+			LIMIT 1
+		');
+		$stmt->execute(array('item_name' => $name));
+		if ($result = $stmt->fetchColumn()) {
+			return $this->fetchById($result);
+		}
+		return false;
+	}
 }
 
 class FittingRepository extends \Apex\Application\Repository
@@ -166,6 +186,11 @@ class FittingRepository extends \Apex\Application\Repository
 	public function getById($id)
 	{
 		return $this->mapper->fetchById($id);
+	}
+	
+	public function getByImport($filename)
+	{
+		return $this->mapper->import($filename);
 	}
 }
 
@@ -202,6 +227,30 @@ class FittingMapper extends \Apex\Application\Mapper
 		while ($result = $stmt->fetch(\PDO::FETCH_ASSOC)) {
 			$item = $itemRepository->getById($result['item_id']);
 			$fitting->getRobot()->addItem($item);
+		}
+		
+		return $fitting;
+	}
+	
+	public function import($filename)
+	{
+		// TODO charges
+		
+		$itemRepository = new \Perpetuum\Fitting\Application\ItemRepository($this->pdo);
+		$fitting = new \Perpetuum\Fitting\Domain\Fitting;
+		
+		foreach(explode("\n", file_get_contents($filename)) as $line) {
+			if (preg_match('/^\[(.*),(.*)]/', $line, $subpatterns)) {
+				if ($item = $itemRepository->getByName($subpatterns[1]) and get_class($item) == 'Perpetuum\Fitting\Domain\Robot') {
+					$fitting->setRobot($item);
+				}
+				$fitting->setName(trim($subpatterns[2]));
+			}
+			elseif (preg_match('/^([^,#]+)/', $line, $subpatterns)) {
+				if ($item = $itemRepository->getByName(trim($subpatterns[1]))) {
+					$fitting->getRobot()->addItem($item);
+				}
+			}
 		}
 		
 		return $fitting;

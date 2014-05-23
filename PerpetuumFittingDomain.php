@@ -54,6 +54,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 		$this->applyExtensionsOnRobot();
 		$this->applyModulesOnRobotAfterExtensions();
 		$this->applyRobotBonuses();
+		$this->applySparkBonuses();
 		$this->applyModulesOnRobotAfterExtensionsAndBonuses();
 		$this->applyRequirements();
 	}
@@ -618,7 +619,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 			$parameter = $bonus->getParameter()->getName();
 			$multiplier = $agent->getExtensionLevel($bonus->getExtension()->getName()) * $bonus->getBonus();
 			
-			if ($bonus->getApply() == 'Robot') {
+			if ($bonus->getTarget() == 'Robot') {
 				switch($parameter):
 				
 					case 'Critical hit chance':
@@ -747,9 +748,107 @@ class Fitting extends \Apex\Domain\NamedEntity
 		}
 	}
 	
+	private function applySparkBonuses()
+	{
+		$robot = $this->getRobot();
+		$agent = $this->getAgent();
+		
+		foreach($agent->getSpark()->getBonuses() as $bonus):
+			$parameter = $bonus->getParameter()->getName();
+			$multiplier = $bonus->getBonus();
+			
+			if ($bonus->getTarget() == 'Robot'):
+				switch($parameter):
+					
+					case 'Critical hit chance':
+						
+						break;
+					
+					case 'Signal detection':
+						$robot->getParameter('Signal detection')->setModifiedValue($robot->getParameterValue('Signal detection') + (100 * $multiplier));
+						break;
+					
+					case 'Signal masking':
+						$robot->getParameter('Signal masking')->setModifiedValue($robot->getParameterValue('Signal masking') + (100 * $multiplier));
+						break;
+					
+					case 'CPU performance':
+						
+						break;
+					
+					case 'Reactor performance':
+						
+						break;
+					
+					case 'Accumulator capacity':
+						$robot->getParameter('Accumulator capacity')->setModifiedValue($robot->getParameterValue('Accumulator capacity') + ($robot->getParameterBaseValue('Accumulator capacity') * $multiplier));
+						break;
+					
+					case 'Accumulator recharge time':
+						$robot->getParameter('Accumulator recharge time')->setModifiedValue($robot->getParameterValue('Accumulator recharge time') - ($robot->getParameterBaseValue('Accumulator recharge time') * $multiplier));
+						break;
+					
+					case 'Passive thermal resistance':
+						$robot->getParameter('Passive thermal resistance')->setModifiedValue($robot->getParameterValue('Passive thermal resistance') + $multiplier);
+						break;
+					
+					case 'Passive kinetic resistance':
+						$robot->getParameter('Passive kinetic resistance')->setModifiedValue($robot->getParameterValue('Passive kinetic resistance') + $multiplier);					
+						break;
+					
+					case 'Passive seismic resistance':
+						$robot->getParameter('Passive seismic resistance')->setModifiedValue($robot->getParameterValue('Passive seismic resistance') + $multiplier);						
+						break;
+					
+					case 'Passive chemical resistance':
+						$robot->getParameter('Passive chemical resistance')->setModifiedValue($robot->getParameterValue('Passive chemical resistance') + $multiplier);
+						break;
+					
+				endswitch;
+			
+			else:
+				foreach($robot->getFittedModules() as $module):
+					if ($module->hasGroup($bonus->getTarget()) && $module->hasParameter($parameter)):
+						switch($parameter):
+						
+							case 'Damage':
+								$module->addExtensionModifier('Damage', $multiplier); // add new method for semantic's sake?
+								break;
+							
+							case 'Mined amount':
+								
+								break;
+							
+							case 'Silgium mined amount':
+								
+								break;
+							
+							case 'Imentium mined amount':
+								
+								break;
+							
+							case 'Stermonit mined amount':
+								
+								break;
+							
+							case 'Accumulator usage':
+								
+								break;
+							
+							case 'Repair':
+								$module->getParameter('Repair')->setModifiedValue($module->getParameterValue('Repair') + ($module->getParameterValue('Repair') * $multiplier));
+								break;
+							
+						endswitch;
+					endif;
+				endforeach;
+			endif;
+		endforeach;
+	}
+	
 	private function applyModulesOnRobotAfterExtensionsAndBonuses()
 	{
-		$robots = $this->getRobot();
+		$robot = $this->getRobot();
 		
 		foreach($robot->getFittedModules() as $module):
 			if ($module->hasGroup('Armor hardeners')) {
@@ -768,7 +867,7 @@ class Fitting extends \Apex\Domain\NamedEntity
 		foreach($robot->getFittedModules() as $module):
 			$robot->getParameter('Available CPU performance')->setModifiedValue($robot->getParameterValue('Available CPU performance') - $module->getParameterValue('CPU usage'));
 			$robot->getParameter('Available reactor performance')->setModifiedValue($robot->getParameterValue('Available reactor performance') - $module->getParameterValue('Reactor usage'));
-			$robot->getParameter('Mass')->setModifiedValue($robot->getParameterValue('Mass') - $module->getParameterValue('Mass'));
+			$robot->getParameter('Mass')->setModifiedValue($robot->getParameterValue('Mass') + $module->getParameterValue('Mass'));
 		endforeach;
 		
 		$robot->getParameter('Top speed')->setModifiedValue(($robot->getParameterBaseValue('Mass') / $robot->getParameterValue('Mass')) * $robot->getParameterValue('Top speed'));
@@ -856,6 +955,11 @@ abstract class Item extends \Apex\Domain\NamedEntity
 	{
 		if ($parameter = $this->getParameter($name)) return $parameter->getBase();
 		else return null;
+	}
+	
+	public function getParameters()
+	{
+		return $this->parameters;
 	}
 	
 	public function addGroup($group)
@@ -1013,6 +1117,11 @@ class Parameter extends \Apex\Domain\NamedEntity
 	public function getValue()
 	{
 		return $this->value;
+	}
+	
+	public function getBaseValue()
+	{
+		return $this->base;
 	}
 	
 	public function getBase()
